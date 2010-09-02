@@ -1,4 +1,4 @@
-package se.klandestino.videorec {
+package se.klandestino.flash.red5utils {
 
 	import flash.events.ErrorEvent;
 	import flash.events.Event;

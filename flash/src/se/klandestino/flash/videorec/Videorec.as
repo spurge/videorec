@@ -1,4 +1,4 @@
-package {
+package se.klandestino.flash.videorec {
 
 	import flash.display.DisplayObject;
 	import flash.display.Sprite;
