@@ -102,7 +102,7 @@ class PostRequest(webapp.RequestHandler):
 		servers = memcache.get('servers')
 		if len(servers) == 0: # Nothing in there, use backup/default data!
 			return {
-				'httpprefix': 'http://79.125.7.38:5080/simpleVideoRec/streams/',
+				'httpprefix': 'http://79.125.7.38:5080/mcVideoRec/streams/',
 				'rtmpprefix': 'rtmp://79.125.7.38/',
 				'timestamp': int(time.time())
 				}	
@@ -120,7 +120,7 @@ class Record(PostRequest):
 			self.response.headers['Content-Type'] = "text/xml; charset=utf-8"
 			self.response.out.write('<?xml version="1.0"?>\r\n');
 			server = self.server()
-			self.response.out.write('<red5missioncontrol><record rmtp="' + server['rtmpprefix'] + 'simpleVideoRec" stream="' + stream + '" http="' + server['httpprefix'] + stream + '.flv" meta="' + server['httpprefix'] + stream + '.flv.meta" time_left="3600" /></red5missioncontrol>');
+			self.response.out.write('<red5missioncontrol><record rmtp="' + server['rtmpprefix'] + 'mcVideoRec" stream="' + stream + '" http="' + server['httpprefix'] + stream + '.flv" meta="' + server['httpprefix'] + stream + '.flv.meta" time_left="3600" /></red5missioncontrol>');
 
 class RecordConsume(PostRequest):
 	def post(self):

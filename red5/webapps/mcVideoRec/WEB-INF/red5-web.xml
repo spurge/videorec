@@ -12,6 +12,6 @@
 		<property name="contextPath" value="${webapp.contextPath}"/>
 		<property name="virtualHosts" value="${webapp.virtualHosts}"/>
 	</bean>
-	<bean id="web.handler" class="se.klandestino.red5.applications.simpleVideoRec.Application" />
+	<bean id="web.handler" class="se.klandestino.red5.applications.mcVideoRec.Application" />
 	<bean id="bwCheckService.service" class="org.red5.demos.bwcheck.BandwidthDetection" />
 </beans>

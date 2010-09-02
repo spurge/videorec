@@ -1,4 +1,4 @@
-package se.klandestino.red5.applications.simpleVideoRec;
+package se.klandestino.red5.applications.mcVideoRec;
 
 import java.net.*;
 import java.io.*;
@@ -14,10 +14,10 @@ import org.slf4j.Logger;
 
 public class Application extends ApplicationAdapter {
 
-	private static String CONF_FILE = "webapps/simpleVideoRec/WEB-INF/simpleVideoRec.conf";
-	private static String STREAM_DIR = "webapps/simpleVideoRec/streams";
+	private static String CONF_FILE = "webapps/mcVideoRec/WEB-INF/mcVideoRec.conf";
+	private static String STREAM_DIR = "webapps/mcVideoRec/streams";
 
-	private static Logger log = Red5LoggerFactory.getLogger (Application.class, "simpleVideoRec");
+	private static Logger log = Red5LoggerFactory.getLogger (Application.class, "mcVideoRec");
 
 	private String publishDir;
 	private int publishTime;
