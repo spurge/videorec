@@ -48,8 +48,8 @@ package se.klandestino.flash.videorec {
 	import se.klandestino.flash.net.MultiLoader;
 	import se.klandestino.flash.utils.LoaderInfoParams;
 	import se.klandestino.flash.utils.StringUtil;
-	import se.klandestino.videorec.R5MC;
-	import se.klandestino.videorec.Red5BwDetect;
+	import se.klandestino.flash.red5utils.R5MC;
+	import se.klandestino.flash.red5utils.Red5BwDetect;
 
 	/**
 	 *	Sprite sub class description.
@@ -60,7 +60,7 @@ package se.klandestino.flash.videorec {
 	 *	@author Olof Montin
 	 *	@since  02.02.2010
 	 */
-	public class Videorec extends Sprite {
+	public class Recorder extends Sprite {
 
 		//--------------------------------------
 		// CLASS CONSTANTS
@@ -108,7 +108,7 @@ package se.klandestino.flash.videorec {
 		/**
 		 *	@constructor
 		 */
-		public function Videorec () {
+		public function Recorder () {
 			super ();
 
 			//Debug.addLogger (new TraceLogger ());
