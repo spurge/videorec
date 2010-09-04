@@ -60,7 +60,7 @@ package se.klandestino.flash.videorec {
 	 *	@author Olof Montin
 	 *	@since  02.02.2010
 	 */
-	public class Recorder extends Sprite {
+	public class Videorec extends Sprite {
 
 		//--------------------------------------
 		// CLASS CONSTANTS
@@ -108,7 +108,7 @@ package se.klandestino.flash.videorec {
 		/**
 		 *	@constructor
 		 */
-		public function Recorder () {
+		public function Videorec () {
 			super ();
 
 			//Debug.addLogger (new TraceLogger ());

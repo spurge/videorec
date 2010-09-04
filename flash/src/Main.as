@@ -13,12 +13,13 @@ package {
 	import se.klandestino.flash.debug.Debug;
 	import se.klandestino.flash.debug.loggers.NullLogger;
 	import se.klandestino.flash.debug.loggers.TraceLogger;
+	import se.klandestino.flash.events.ControlPanel;
 	import se.klandestino.flash.red5utils.R5MC;
 	import se.klandestino.flash.red5utils.Red5BwDetect;
 	import se.klandestino.flash.utils.LoaderInfoParams;
 	import se.klandestino.flash.utils.StringUtil;
-	import se.klandestino.flash.videorec.ControlPanel;
-	import se.klandestino.flash.videorec.Recorder;
+	import se.klandestino.flash.videoplayer.Videoplayer;
+	import se.klandestino.flash.videorec.Videorec;
 
 	/**
 	 *	Sprite sub class description.
@@ -70,9 +71,10 @@ package {
 		private var config:ConfigLoader;
 		private var missionControl:R5MC;
 		private var panel:ControlPanel;
+		private var player:Videoplayer;
 		private var r5mcProject:String = '';
 		private var r5mcSecret:String = '';
-		private var recorder:Recorder;
+		private var recorder:Videorec;
 
 		//--------------------------------------
 		//  GETTER/SETTERS
