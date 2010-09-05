@@ -1,6 +1,7 @@
 package se.klandestino.flash.videorec.events {
+
 	import flash.events.Event;
-	
+
 	/**
 	 *	Event subclass description.
 	 *
@@ -16,7 +17,10 @@ package se.klandestino.flash.videorec.events {
 		// CLASS CONSTANTS
 		//--------------------------------------
 
-		public static const CONNECTED:String = 'connected';
+		public static const ERROR_SECURITY:String = 'security error';
+		public static const ERROR_STREAM_IO:String = 'stream i/o error'
+		public static const NO_CAMERA:String = 'no camera';
+		public static const NO_MICROPHONE:String = 'no microphone';
 		public static const RECORD:String = 'record';
 		public static const STOP:String = 'stop';
 
