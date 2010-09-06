@@ -7,7 +7,11 @@ package se.klandestino.flash.controlpanel {
 	import flash.ui.Mouse;
 	import flash.utils.clearTimeout;
 	import flash.utils.setTimeout;
+	import se.klandestino.flash.controlpanel.ControlPanelSetup;
 	import se.klandestino.flash.debug.Debug;
+	import se.klandestino.flash.events.ControlPanelEvent;
+	import se.klandestino.flash.events.VideoplayerEvent;
+	import se.klandestino.flash.events.VideorecEvent;
 	import se.klandestino.flash.net.MultiLoader;
 	import se.klandestino.flash.utils.CoordinationTools;
 	import se.klandestino.flash.utils.StringUtil;
@@ -37,15 +41,10 @@ package se.klandestino.flash.controlpanel {
 		public static const POSITION_LEFT:String = 'left';
 		public static const POSITION_RIGHT:String = 'right';
 		public static const POSITION_TOP:String = 'top';
-		public static const SETUP_PLAYER_MOUSE:String = 'player-mouse';
-		public static const SETUP_PLAYER_PAUSE:String = 'player-pause';
-		public static const SETUP_PLAYER_PLAY:String = 'player-play';
-		public static const SETUP_RECORD_RECORD:String = 'record-record';
-		public static const SETUP_RECORD_STOP:String = 'record-stop';
 		public static const SHOW_ALWAYS:String = 'always';
-		public static const SHOW_MOUSE:String = 'mouse';
-		public static const SHOW_PAUSE:String = 'pause';
 		public static const SHOW_PLAY:String = 'play';
+		public static const SHOW_PLAY_MOUSE:String = 'play-mouse';
+		public static const SHOW_PLAY_PAUSE:String = 'play-pause';
 		public static const SHOW_RECORD:String = 'record';
 		public static const SHOW_STOP:String = 'stop';
 
@@ -67,13 +66,15 @@ package se.klandestino.flash.controlpanel {
 		//  PRIVATE VARIABLES
 		//--------------------------------------
 
-		private var _currentSetup:String = ControlPanel.SETUP_RECORD_STOP;
+		private var _currentSetup:String = ControlPanel.SETUP_START;
 		private var finishbutton:Object;
 		private var loader:MultiLoader;
 		private var mouseTimeout:uint;
 		private var pausebutton:Object;
 		private var playbutton:Object;
+		private var previewbutton:Object;
 		private var recordbutton:Object;
+		private var stopbutton:Object;
 		private var _player:Videoplayer;
 		private var _recorder:Videorecorder;
 
@@ -128,7 +129,11 @@ package se.klandestino.flash.controlpanel {
 			Debug.debug ('Settng up control panel to ' + setup);
 
 			switch (setup) {
-				case ControlPanel.SETUP_MOUSE:
+				case ControlPanelSetup.START:
+					this._currentSetup = ControlPanel.SETUP_START;
+					Mouse.show ();
+					break;
+				case ControlPanelSetup.PLAY_MOUSE:
 					this._currentSetup = ControlPanel.SETUP_MOUSE;
 					Mouse.show ();
 					clearTimeout (this.mouseTimeout);
@@ -147,38 +152,69 @@ package se.klandestino.flash.controlpanel {
 					return;
 			}
 
+			this.setupButton (this.finishbutton);
 			this.setupButton (this.pausebutton);
 			this.setupButton (this.playbutton);
+			this.setupButton (this.recordbutton);
+			this.setupButton (this.stopbutton);
+
+			var event:ControlPanelEvent = new ControlPanelEvent ();
+			event.setup = setup;
+			this.dispatchEvent (event);
+		}
+
+		public function setFinishButton (url:String, params:Object = null):void {
+			Debug.debug ('Setting finish button to ' + url);
+			this.hideButton (this.finishbutton);
+			this.finishbutton = createButton ('finish', url, params, {
+				show: ControlPanel.SHOW_PREVIEW,
+				hide: ControlPanel.START
+			});
 		}
 
 		public function setPauseButton (url:String, params:Object = null):void {
 			Debug.debug ('Setting pause button to ' + url);
 			this.hideButton (this.pausebutton);
-			this.pausebutton = new Object ();
-			this.pausebutton.url = url;
-			this.pausebutton.show = params ? (params.show ? params.show : ControlPanel.SHOW_MOUSE) : ControlPanel.SHOW_MOUSE;
-			this.pausebutton.hide = params ? (params.hide ? params.hide : ControlPanel.SHOW_PLAY) : ControlPanel.SHOW_PLAY;
-			this.pausebutton.x = params ? (params.x ? params.x : '') : '';
-			this.pausebutton.y = params ? (params.y ? params.y : '') : '';
-			this.pausebutton.sprite = new Sprite ();
-			this.addChild (this.pausebutton.sprite);
-
-			this.loader.add (this.pausebutton.url, 'pause', this.pausebutton.sprite);
+			this.pausebutton = createButton ('pause', url, params, {
+				show: ControlPanel.SHOW_PLAY_MOUSE,
+				hide: ControlPanel.SHOW_PLAY
+			});
 		}
 
 		public function setPlayButton (url:String, params:Object = null):void {
 			Debug.debug ('Setting play button to ' + url);
 			this.hideButton (this.playbutton);
-			this.playbutton = new Object ();
-			this.playbutton.url = url;
-			this.playbutton.show = params ? (params.show ? params.show : ControlPanel.SHOW_PAUSE) : ControlPanel.SHOW_PAUSE;
-			this.playbutton.hide = params ? (params.hide ? params.hide : '') : '';
-			this.playbutton.x = params ? (params.x ? params.x : '') : '';
-			this.playbutton.y = params ? (params.y ? params.y : '') : '';
-			this.playbutton.sprite = new Sprite ();
-			this.addChild (this.playbutton.sprite);
+			this.playbutton = createButton ('play', url, params, {
+				show: ControlPanel.SHOW_PREVIEW + ' ' + ControlPanel.SHOW_PLAY_PAUSE,
+				hide: ControlPanel.SHOW_PLAY
+			});
+		}
 
-			this.loader.add (this.playbutton.url, 'play', this.playbutton.sprite);
+		public function setPreviewButton (url:String, params:Object = null):void {
+			Debug.debug ('Setting preview button to ' + url);
+			this.hideButton (this.previewbutton);
+			this.previewbutton = createButton ('preview', url, params, {
+				show: ControlPanel.SHOW_PREVIEW,
+				hide: ControlPanel.SHOW_START + ' ' + ControlPanel.SHOW_PLAY
+			});
+		}
+
+		public function setStopButton (url:String, params:Object = null):void {
+			Debug.debug ('Setting stop button to ' + url);
+			this.hideButton (this.stopbutton);
+			this.stopbutton = createButton ('stop', url, params, {
+				show: ControlPanel.SHOW_PLAY,
+				hide: ControlPanel.SHOW_START + ' ' + hide: ControlPanel.SHOW_PREVIEW
+			});
+		}
+
+		public function setRecordButton (url:String, params:Object = null):void {
+			Debug.debug ('Setting record button to ' + url);
+			this.hideButton (this.stopbutton);
+			this.recordbutton = createButton ('record', url, params, {
+				show: ControlPanel.SHOW_START,
+				hide: ControlPanel.SHOW_PLAY
+			});
 		}
 
 		//--------------------------------------
@@ -251,6 +287,18 @@ package se.klandestino.flash.controlpanel {
 		//--------------------------------------
 		//  PRIVATE & PROTECTED INSTANCE METHODS
 		//--------------------------------------
+
+		private function createButton (name:String, url:String, params:Object, default:Object):Object {
+			var button:Object = new Object ();
+			button.url = url;
+			button.show = params ? (params.show ? params.show : default.show) : default.show;
+			button.hide = params ? (params.hide ? params.hide : default.hide) : default.hide;
+			button.x = params ? (params.x ? params.x : '') : '';
+			button.y = params ? (params.y ? params.y : '') : '';
+			button.sprite = new Sprite ();
+			this.addChild (button.sprite);
+			this.loader.add (url, name, button.sprite);
+		}
 
 		private function hideButton (button:Object):void {
 			if (button != null) {

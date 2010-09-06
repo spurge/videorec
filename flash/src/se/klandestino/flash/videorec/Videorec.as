@@ -189,7 +189,7 @@ package se.klandestino.flash.videorec {
 		}
 
 		private function recordTimerCompleteHandler (event:TimerEvent):void {
-			Debug.debug ('Timer complete'):
+			Debug.debug ('Timer complete');
 			this.stop ();
 			this.recordStop ();
 		}

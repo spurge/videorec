@@ -10,7 +10,7 @@ package se.klandestino.flash.videoplayer {
 	import se.klandestino.flash.debug.Debug;
 	import se.klandestino.flash.events.NetStreamClientEvent;
 	import se.klandestino.flash.net.NetStreamClient;
-	import se.klandestino.flash.videoplayer.events.VideoplayerEvent;
+	import se.klandestino.flash.events.VideoplayerEvent;
 
 	/**
 	 *	Sprite sub class description.

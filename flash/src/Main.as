@@ -13,10 +13,14 @@ package {
 	import net.hires.debug.Stats;
 	import org.red5.flash.bwcheck.events.BandwidthDetectEvent;
 	import se.klandestino.flash.config.ConfigLoader;
+	import se.klandestino.flash.controlpanel.ControlPanel;
+	import se.klandestino.flash.controlpanel.ControlPanelSetup;
 	import se.klandestino.flash.debug.Debug;
 	import se.klandestino.flash.debug.loggers.NullLogger;
 	import se.klandestino.flash.debug.loggers.TraceLogger;
-	import se.klandestino.flash.events.ControlPanel;
+	import se.klandestino.flash.events.ControlPanelEvent;
+	import se.klandestino.flash.events.VideoplayerEvent;
+	import se.klandestino.flash.events.VideorecEvent;
 	import se.klandestino.flash.red5utils.R5MC;
 	import se.klandestino.flash.red5utils.Red5BwDetect;
 	import se.klandestino.flash.utils.LoaderInfoParams;
@@ -63,6 +67,8 @@ package {
 
 			this.loadConfig ();
 
+			this.setupConnectionControls ();
+
 			this.recplayContainer = new Sprite ();
 			this.addChild (this.recplayContainer);
 
@@ -79,6 +85,7 @@ package {
 			this.player.addEventListener (VideoplayerEvent.STOP, this.playerStopHandler, false, 0, true);
 
 			this.panel = new ControlPanel ();
+			this.panel.addEventListener (ControlPanelEvent.SETUP_CHANGE, this.panelSetupChangeHandler, false, 0, true);
 			this.panel.recorder = this.recorder;
 			this.panel.player = this.player;
 			this.addChild (this.panel);
@@ -97,12 +104,14 @@ package {
 		private var autosize:Boolean = false;
 		private var bandwidthOverride:int = 0;
 		private var bwDetect:Red5BwDetect;
+		private var bwDetectFail:Boolean = false;
 		private var config:ConfigLoader;
 		private var connected:Boolean = false;
 		private var connection:NetConnection;
 		private var connectionRetries:int = 0;
 		private var connectionRetryTimeout:int;
 		private var loader:Sprite;
+		private var messages:Object;
 		private var missionControl:R5MC;
 		private var panel:ControlPanel;
 		private var player:Videoplayer;
@@ -139,12 +148,12 @@ package {
 
 		private function missionControlCompleteHandler (event:Event):void {
 			Debug.debug ('Mission Control Complete');
-			this.setupRecorder ();
+			this.start ();
 		}
 
 		private function missionControlErrorHandler (event:ErrorEvent):void {
 			Debug.debug ('Mission Control Error');
-			this.sendError (Videorec.MSG_NO_CONNECTION);
+			this.sendErrorMessage (Messages.connectionError);
 		}
 
 		private function connectionNetStatusHandler (event:NetStatusEvent): void {
@@ -155,19 +164,19 @@ package {
 					this.connected = true;
 					this.connectionRetries = 0;
 					if (!this.camera.muted && !this.microphone.muted) {
-						this.dispatchEvent (new VideorecEvent (VideorecEvent.CONNECTED));
+						this.start ();
 					}
 					break;
 				case 'NetConnection.Connect.Failed':
 					this.connected = false;
-					if (!this.retryNetConnection ()) {
-						this.dispatchEvent (new VideorecEvent (VideorecEvent.DISCONNECTED));
+					if (!this.retryConnection ()) {
+						this.sendErrorMessage (Messages.connectionError);
 					}
 					break;
 				case 'NetConnection.Connect.Closed':
 					this.connected = false;
-					if (!this.retryNetConnection ()) {
-						this.dispatchEvent (new VideorecEvent (VideorecEvent.DISCONNECTED));
+					if (!this.retryConnection ()) {
+						this.sendErrorMessage (Messages.connectionLost);
 					}
 					break;
 			}
@@ -175,10 +184,20 @@ package {
 
 		private function connectionSecurityErrorHandler (event:SecurityErrorEvent): void {
 			Debug.error ('NetConnection security error');
-			this.dispatchEvent (new VideorecEvent (VideorecEvent.ERROR_SECURITY));
+			this.sendErrorMessage (Messages.connectionError)
 		}
 
-		
+		private function bwCheckCompleteHandler (event:Event):void {
+			Debug.debug ('Bandwidth detection complete');
+			this.bwDetectFail = false;
+			this.start ();
+		}
+
+		private function bwCheckFailedHandler (event:ErrorEvent):void {
+			Debug.debug ('Bandwidth detection failed');
+			this.bwDetectFail = true;
+			this.start ();
+		}
 
 		private function stageResizeHandler (event:Event):void {
 			if (!this.autosize) {
@@ -251,6 +270,20 @@ package {
 			this.setupLoaderPositions ();
 		}
 
+		private function panelSetupChangeHandler (event:ControlPanelEvent):void {
+			Debug.debug ('Control panel setup changed to ' + event.setup);
+
+			switch (event.setup) {
+				case ControlPanelSetup.START:
+				case ControlPanelSetup.PREVIEW:
+					this.setupRecorder ();
+					break;
+				case ControlPanelSetup.PLAY:
+					this.setupPlayer ();
+					break;
+			}
+		}
+
 		//--------------------------------------
 		//  PRIVATE & PROTECTED INSTANCE METHODS
 		//--------------------------------------
@@ -258,9 +291,19 @@ package {
 		private function start ():void {
 			if (!this.missionControl.loaded) {
 				this.setupMissionControl ();
+			} else if (!this.connection.connected) {
+				this.setupConnection ();
+			} else if (!this.bwDetect.detected && this.bwDetectFail) {
+				this.setupBwDetect ();
 			} else {
-				this.setupRecorder ();
+				this.panel.setup (ControlPanelSetup.START);
 			}
+		}
+
+		private function reset ():void {
+			this.removeConnectionControls ();
+			this.setupConnectionControls ();
+			this.start ();
 		}
 
 		private function loadConfig ():void {
@@ -288,6 +331,12 @@ package {
 
 			this.player.autosize = this.autosize;
 			this.recorder.autosize = this.autosize;
+
+			this.messages = {
+				connectionError: this.config.getData ('message.connection.error', ''),
+				connectionLost: this.config.getData ('message.connection.lost', ''),
+				finish: this.config.getData ('message.finish', '')
+			}
 
 			this.panel.setPlayerPlayButton (this.config.getData ('panel.player.play.src', ''), {
 				show: this.config.getData ('panel.player.play.show', ''),
@@ -337,37 +386,50 @@ package {
 			this.recorder.timelimit = LoaderInfoParams.getParam (this.stage.loaderInfo, 'recordtime', this.config.getData ('recordtime.value', this.recordTime));
 		}
 
+		private function setupConnectionControls ():void {
+			this.connection = new NetConnection ();
+			this.connection.addEventListener (NetStatusEvent.NET_STATUS, this.connectionNetStatusHandler, false, 0, true);
+			this.connection.addEventListener (SecurityErrorEvent.SECURITY_ERROR, this.connectionSecurityErrorHandler, false, 0, true);
+
+			this.missionControl = new R5MC ();
+			this.missionControl.addEventListener (Event.COMPLETE, this.missionControlCompleteHandler, false, 0, true);
+			this.missionControl.addEventListener (ErrorEvent.ERROR, this.missionControlErrorHandler, false, 0, true);
+
+			this.bwDetect = new Red5BwDetect ();
+			this.bwDetect.addEventListener (Event.COMPLETE, this.bwCheckCompleteHandler, false, 0, true);
+			this.bwDetect.addEventListener (ErrorEvent.ERROR, this.bwCheckFailedHandler, false, 0, true);
+		}
+
+		private function removeConnectionControls ():void {
+			this.connection.removeEventListener (NetStatusEvent.NET_STATUS, this.connectionNetStatusHandler);
+			this.connection.removeEventListener (SecurityErrorEvent.SECURITY_ERROR, this.connectionSecurityErrorHandler);
+			this.connection = null;
+
+			this.missionControl.removeEventListener (Event.COMPLETE, this.missionControlCompleteHandler);
+			this.missionControl.removeEventListener (ErrorEvent.ERROR, this.missionControlErrorHandler);
+			this.missionControl = null;
+
+			this.bwDetect.removeEventListener (Event.COMPLETE, this.bwCheckCompleteHandler);
+			this.bwDetect.removeEventListener (ErrorEvent.ERROR, this.bwCheckFailedHandler);
+			this.bwDetect = null;
+		}
+
 		private function setupMissionControl ():void {
 			Debug.debug ('Setting up Mission Control');
-
-			if (this.missionControl == null) {
-				this.missionControl = new R5MC ();
-				this.missionControl.addEventListener (Event.COMPLETE, this.missionControlCompleteHandler, false, 0, true);
-				this.missionControl.addEventListener (ErrorEvent.ERROR, this.missionControlErrorHandler, false, 0, true);
-			}
-
 			this.missionControl.load (this.r5mcProject, this.r5mcSecret);
 		}
 
-		private function setupNetConnection ():void {
+		private function setupConnection ():void {
 			Debug.debug ('Setting up NetConnection');
-
-			if (this.connection == null) {
-				this.connection = new NetConnection ();
-				this.connection.addEventListener (NetStatusEvent.NET_STATUS, this.connectionNetStatusHandler, false, 0, true);
-				this.connection.addEventListener (SecurityErrorEvent.SECURITY_ERROR, this.connectionSecurityErrorHandler, false, 0, true);
-			}
-
 			this.connection.connect (this.missionControl.rtmp, this.missionControl.stream);
 		}
 
-		private function retryNetConnection ():Boolean {
+		private function retryConnection ():Boolean {
 			clearTimeout (this.connectionRetryTimeout);
 
 			if (this.connectionRetries < Videorec.CONNECTION_RETRIES) {
 				this.connectionRetries++;
 				Debug.debug ('Retrying to setup up connection, ' + this.connectionRetries + ' of ' + Videorec.CONNECTION_RETRIES);
-				this.setupVideoFilters ();
 				this.setupLoaderMovie ();
 				this.connectionRetryTimeout = setTimeout (this.init, Videorec.CONNECTION_RETRY_TIMEOUT);
 				return true;
@@ -377,14 +439,36 @@ package {
 		}
 
 		private function setupBwDetect ():void {
-			this.bwDetect = new Red5BwDetect ();
-			this.bwDetect.addEventListener (Event.COMPLETE, this.bwCheckCompleteHandler, false, 0, true);
-			this.bwDetect.addEventListener (ErrorEvent.ERROR, this.bwCheckFailedHandler, false, 0, true);
 			this.bwDetect.connection = this.connection;
+			this.bwDetect.start ();
 		}
 
 		private function setupRecorder ():void {
-			this.recorder.connect (this.missionControl.rtmp, this.missionControl.stream);
+			this.removeRecorder ();
+			this.recorder.connection = this.connection;
+			if (this.recorder.parent == null) {
+				this.recplayContainer.addChild (this.recorder);
+			}
+		}
+
+		private function removeRecorder ():void {
+			if (this.recorder.parent != null) {
+				this.recplayContainer.removeChild (this.recorder);
+			}
+		}
+
+		private function setupPlayer ():void {
+			this.removeRecorder ();
+			this.player.connection = this.connection;
+			if (this.player.parent == null) {
+				this.recplayContainer.addChild (this.player);
+			}
+		}
+
+		private function removePlayer ():void {
+			if (this.player.parent != null) {
+				this.recplayContainer.removeChild (this.player);
+			}
 		}
 
 		private function setupVideoPositions ():void {
@@ -420,6 +504,10 @@ package {
 			}
 		}
 
+		private function sendErrorMessage (message:String):void {
+			//
+		}
+
 		private function sendCallback (type:String, ... args):void {
 			if (!(StringUtil.isEmpty (this.jsCallback))) {
 				Debug.debug ('Calling ' + this.jsCallback + ' as javascript callback with type ' + type);
@@ -432,4 +520,3 @@ package {
 	}
 
 }
-
