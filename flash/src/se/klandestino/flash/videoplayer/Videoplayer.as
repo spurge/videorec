@@ -50,7 +50,7 @@ package se.klandestino.flash.videoplayer {
 		private var _autosize:Boolean = false;
 		private var _buffer:uint = 10;
 		private var bufferFull:Boolean = false;
-		private var connection:NetConnection;
+		private var _connection:NetConnection;
 		private var _duration:Number = 0;
 		private var _loaded:Boolean;
 		private var playbackStop:Boolean = true;
@@ -95,6 +95,14 @@ package se.klandestino.flash.videoplayer {
 			}
 
 			return false;
+		}
+
+		public function get connection ():NetConnection {
+			return this._connection;
+		}
+
+		public function set connection (connection:NetConnection):void {
+			this.setupConnection (connection);
 		}
 
 		public function get duration ():Number {
@@ -160,18 +168,19 @@ package se.klandestino.flash.videoplayer {
 		public function connect (url:String = null):void {
 			Debug.debug ('Connecting to ' + url);
 
-			if (this.connection != null) {
-				this.connection.removeEventListener (NetStatusEvent.NET_STATUS, this.connectionStatusHandler);
-				this.connection = null;
-			}
-
-			this.connection = new NetConnection ();
-			this.connection.addEventListener (NetStatusEvent.NET_STATUS, this.connectionStatusHandler, false, 0, true);
+			this.removeConnection ();
+			this.setupConnection (new NetConnection ());
 			this.connection.connect (url);
 		}
 
 		public function load (url:String):void {
-			if (this.connection.connected) {
+			var connected:Boolean = false;
+
+			if (this.connection != null) {
+				connected = this.connection.connected;
+			}
+
+			if (connected) {
 				if (this.url != url) {
 					Debug.debug ('Loading new video from ' + url);
 
@@ -435,6 +444,18 @@ package se.klandestino.flash.videoplayer {
 		//--------------------------------------
 		//  PRIVATE & PROTECTED INSTANCE METHODS
 		//--------------------------------------
+
+		private function setupConnection (connection:NetConnection):void {
+			this._connection = connection;
+			this._connection.addEventListener (NetStatusEvent.NET_STATUS, this.connectionStatusHandler, false, 0, true);
+		}
+
+		private function removeConnection ():void {
+			if (this._connection != null) {
+				this._connection.removeEventListener (NetStatusEvent.NET_STATUS, this.connectionStatusHandler);
+				this._connection = null;
+			}
+		}
 
 		private function setupVideo ():void {
 			if (this.video == null) {

@@ -15,10 +15,8 @@ package se.klandestino.flash.controlpanel {
 	import se.klandestino.flash.net.MultiLoader;
 	import se.klandestino.flash.utils.CoordinationTools;
 	import se.klandestino.flash.utils.StringUtil;
-	import se.klandestino.flash.videoplayer.events.VideoplayerEvent;
 	import se.klandestino.flash.videoplayer.Videoplayer;
-	import se.klandestino.flash.videorec.events.VideorecEvent;
-	import se.klandestino.flash.videorec.Recorder;
+	import se.klandestino.flash.videorec.Videorec;
 
 	/**
 	 *	Sprite sub class description.
@@ -42,11 +40,6 @@ package se.klandestino.flash.controlpanel {
 		public static const POSITION_RIGHT:String = 'right';
 		public static const POSITION_TOP:String = 'top';
 		public static const SHOW_ALWAYS:String = 'always';
-		public static const SHOW_PLAY:String = 'play';
-		public static const SHOW_PLAY_MOUSE:String = 'play-mouse';
-		public static const SHOW_PLAY_PAUSE:String = 'play-pause';
-		public static const SHOW_RECORD:String = 'record';
-		public static const SHOW_STOP:String = 'stop';
 
 		//--------------------------------------
 		//  CONSTRUCTOR
@@ -66,7 +59,7 @@ package se.klandestino.flash.controlpanel {
 		//  PRIVATE VARIABLES
 		//--------------------------------------
 
-		private var _currentSetup:String = ControlPanel.SETUP_START;
+		private var _currentSetup:String = ControlPanelSetup.START;
 		private var finishbutton:Object;
 		private var loader:MultiLoader;
 		private var mouseTimeout:uint;
@@ -74,9 +67,10 @@ package se.klandestino.flash.controlpanel {
 		private var playbutton:Object;
 		private var previewbutton:Object;
 		private var recordbutton:Object;
-		private var stopbutton:Object;
+		private var stopplaybutton:Object;
+		private var stoprecordbutton:Object;
 		private var _player:Videoplayer;
-		private var _recorder:Videorecorder;
+		private var _recorder:Videorec;
 
 		//--------------------------------------
 		//  GETTER/SETTERS
@@ -86,35 +80,24 @@ package se.klandestino.flash.controlpanel {
 			return this._currentSetup;
 		}
 
-		public function get videoplayer ():Videoplayer {
-			return this._videoplayer;
+		public function get player ():Videoplayer {
+			return this._player;
 		}
 
-		public function set videoplayer (videoplayer:Videoplayer):void {
-			if (this._videoplayer != null) {
-				this._videoplayer.removeEventListener (Event.ENTER_FRAME, this.videoEnterFrameHandler);
-				this._videoplayer.removeEventListener (Event.RESIZE, this.videoResizeHandler);
-				this._videoplayer.removeEventListener (MouseEvent.MOUSE_MOVE, this.videoMouseMoveHandler);
-				this._videoplayer.removeEventListener (VideoplayerEvent.LOADED, this.videoLoadedHandler);
-				this._videoplayer.removeEventListener (VideoplayerEvent.PAUSE, this.videoPauseHandler);
-				this._videoplayer.removeEventListener (VideoplayerEvent.PLAY, this.videoPlayHandler);
-				this._videoplayer.removeEventListener (VideoplayerEvent.RESUME, this.videoResumeHandler);
-				this._videoplayer.removeEventListener (VideoplayerEvent.STOP, this.videoStopHandler);
-			}
+		public function set player (player:Videoplayer):void {
+			this.removePlayerEventListeners ();
+			this._player = player;
+			this.addPlayerEventListeners ();
+		}
 
-			this._videoplayer = videoplayer;
-			this._videoplayer.addEventListener (Event.ENTER_FRAME, this.videoEnterFrameHandler, false, 0, true);
-			this._videoplayer.addEventListener (Event.RESIZE, this.videoResizeHandler, false, 0, true);
-			this._videoplayer.addEventListener (MouseEvent.MOUSE_MOVE, this.videoMouseMoveHandler, false, 0, true);
-			this._videoplayer.addEventListener (VideoplayerEvent.LOADED, this.videoLoadedHandler, false, 0, true);
-			this._videoplayer.addEventListener (VideoplayerEvent.PAUSE, this.videoPauseHandler, false, 0, true);
-			this._videoplayer.addEventListener (VideoplayerEvent.PLAY, this.videoPlayHandler, false, 0, true);
-			this._videoplayer.addEventListener (VideoplayerEvent.RESUME, this.videoResumeHandler, false, 0, true);
-			this._videoplayer.addEventListener (VideoplayerEvent.STOP, this.videoStopHandler, false, 0, true);
+		public function get recorder ():Videorec {
+			return this._recorder;
+		}
 
-			if (this.videoplayer.loaded) {
-				this.visible = true;
-			}
+		public function set recorder (recorder:Videorec):void {
+			this.removeRecorderEventListeners ();
+			this._recorder = recorder;
+			this.addPlayerEventListeners ();
 		}
 
 		//--------------------------------------
@@ -130,22 +113,50 @@ package se.klandestino.flash.controlpanel {
 
 			switch (setup) {
 				case ControlPanelSetup.START:
-					this._currentSetup = ControlPanel.SETUP_START;
+					this._currentSetup = ControlPanelSetup.START;
+					Mouse.show ();
+					break;
+				case ControlPanelSetup.RECORD:
+					this._currentSetup = ControlPanelSetup.RECORD;
+					Mouse.show ();
+					if (this.recorder != null) {
+						this.recorder.record ();
+					} else {
+						Debug.warn ('No recorder registered to record');
+					}
+					break;
+				case ControlPanelSetup.PREVIEW:
+					this._currentSetup = ControlPanelSetup.PREVIEW;
+					Mouse.show ();
+					break;
+				case ControlPanelSetup.PLAY:
+					if (this.player != null) {
+						if (this._currentSetup == ControlPanelSetup.PLAY_PAUSE) {
+							this.player.resume ();
+						} else {
+							this.player.play ();
+						}
+					} else {
+						Debug.warn ('No player registered to play');
+					}
+
+					this._currentSetup = ControlPanelSetup.PLAY;
 					Mouse.show ();
 					break;
 				case ControlPanelSetup.PLAY_MOUSE:
-					this._currentSetup = ControlPanel.SETUP_MOUSE;
+					this._currentSetup = ControlPanelSetup.PLAY_MOUSE;
 					Mouse.show ();
 					clearTimeout (this.mouseTimeout);
-					this.mouseTimeout = setTimeout (this.endMouseSetup, MOUSE_HIDE_TIMEOUT);
+					this.mouseTimeout = setTimeout (this.endMouseSetup, ControlPanel.MOUSE_HIDE_TIMEOUT);
 					break;
-				case ControlPanel.SETUP_PAUSE:
+				case ControlPanelSetup.PLAY_PAUSE:
+					this.player.pause ();
+					this._currentSetup = ControlPanelSetup.PLAY_PAUSE;
 					Mouse.show ();
-					this._currentSetup = ControlPanel.SETUP_PAUSE;
 					break;
-				case ControlPanel.SETUP_PLAY:
-					Mouse.hide ();
-					this._currentSetup = ControlPanel.SETUP_PLAY;
+				case ControlPanelSetup.FINISH:
+					this._currentSetup = ControlPanelSetup.FINISH;
+					Mouse.show ();
 					break;
 				default:
 					Debug.warn ('There is no setup with name ' + setup);
@@ -156,9 +167,10 @@ package se.klandestino.flash.controlpanel {
 			this.setupButton (this.pausebutton);
 			this.setupButton (this.playbutton);
 			this.setupButton (this.recordbutton);
-			this.setupButton (this.stopbutton);
+			this.setupButton (this.stopplaybutton);
+			this.setupButton (this.stoprecordbutton);
 
-			var event:ControlPanelEvent = new ControlPanelEvent ();
+			var event:ControlPanelEvent = new ControlPanelEvent (ControlPanelEvent.SETUP_CHANGE);
 			event.setup = setup;
 			this.dispatchEvent (event);
 		}
@@ -167,8 +179,8 @@ package se.klandestino.flash.controlpanel {
 			Debug.debug ('Setting finish button to ' + url);
 			this.hideButton (this.finishbutton);
 			this.finishbutton = createButton ('finish', url, params, {
-				show: ControlPanel.SHOW_PREVIEW,
-				hide: ControlPanel.START
+				show: ControlPanelSetup.PREVIEW,
+				hide: ControlPanelSetup.START
 			});
 		}
 
@@ -176,8 +188,8 @@ package se.klandestino.flash.controlpanel {
 			Debug.debug ('Setting pause button to ' + url);
 			this.hideButton (this.pausebutton);
 			this.pausebutton = createButton ('pause', url, params, {
-				show: ControlPanel.SHOW_PLAY_MOUSE,
-				hide: ControlPanel.SHOW_PLAY
+				show: ControlPanelSetup.PLAY_MOUSE,
+				hide: ControlPanelSetup.PLAY
 			});
 		}
 
@@ -185,8 +197,8 @@ package se.klandestino.flash.controlpanel {
 			Debug.debug ('Setting play button to ' + url);
 			this.hideButton (this.playbutton);
 			this.playbutton = createButton ('play', url, params, {
-				show: ControlPanel.SHOW_PREVIEW + ' ' + ControlPanel.SHOW_PLAY_PAUSE,
-				hide: ControlPanel.SHOW_PLAY
+				show: ControlPanelSetup.PREVIEW + ' ' + ControlPanelSetup.PLAY_PAUSE,
+				hide: ControlPanelSetup.PLAY
 			});
 		}
 
@@ -194,26 +206,35 @@ package se.klandestino.flash.controlpanel {
 			Debug.debug ('Setting preview button to ' + url);
 			this.hideButton (this.previewbutton);
 			this.previewbutton = createButton ('preview', url, params, {
-				show: ControlPanel.SHOW_PREVIEW,
-				hide: ControlPanel.SHOW_START + ' ' + ControlPanel.SHOW_PLAY
+				show: ControlPanelSetup.PREVIEW,
+				hide: ControlPanelSetup.START + ' ' + ControlPanelSetup.PLAY
 			});
 		}
 
-		public function setStopButton (url:String, params:Object = null):void {
-			Debug.debug ('Setting stop button to ' + url);
-			this.hideButton (this.stopbutton);
-			this.stopbutton = createButton ('stop', url, params, {
-				show: ControlPanel.SHOW_PLAY,
-				hide: ControlPanel.SHOW_START + ' ' + hide: ControlPanel.SHOW_PREVIEW
+		public function setStopPlayButton (url:String, params:Object = null):void {
+			Debug.debug ('Setting stop play button to ' + url);
+			this.hideButton (this.stopplaybutton);
+			this.stopplaybutton = createButton ('stop-play', url, params, {
+				show: ControlPanelSetup.PLAY,
+				hide: ControlPanelSetup.RECORD + ' ' + ControlPanelSetup.START + ' ' + ControlPanelSetup.PREVIEW
+			});
+		}
+
+		public function setStopRecordButton (url:String, params:Object = null):void {
+			Debug.debug ('Setting stop record button to ' + url);
+			this.hideButton (this.stoprecordbutton);
+			this.stoprecordbutton = createButton ('stop-record', url, params, {
+				show: ControlPanelSetup.RECORD,
+				hide: ControlPanelSetup.PLAY + ' ' + ControlPanelSetup.START + ' ' + ControlPanelSetup.PREVIEW
 			});
 		}
 
 		public function setRecordButton (url:String, params:Object = null):void {
 			Debug.debug ('Setting record button to ' + url);
-			this.hideButton (this.stopbutton);
+			this.hideButton (this.recordbutton);
 			this.recordbutton = createButton ('record', url, params, {
-				show: ControlPanel.SHOW_START,
-				hide: ControlPanel.SHOW_PLAY
+				show: ControlPanelSetup.START,
+				hide: ControlPanelSetup.PLAY
 			});
 		}
 
@@ -222,17 +243,50 @@ package se.klandestino.flash.controlpanel {
 		//--------------------------------------
 
 		private function buttonClickHandler (event:MouseEvent):void {
-			if (this.pausebutton != null && this.videoplayer != null) {
+			if (this.finishbutton != null) {
+				Debug.debug ('Finish button clicked');
+				this.setup (ControlPanelSetup.FINISH)
+			}
+
+			if (this.pausebutton != null) {
 				if (event.target === this.pausebutton.sprite) {
 					Debug.debug ('Pause button clicked');
-					this.videoplayer.pause ();
+					this.setup (ControlPanelSetup.PLAY_PAUSE);
 				}
 			}
 
-			if (this.playbutton != null && this.videoplayer != null) {
+			if (this.playbutton != null) {
 				if (event.target === this.playbutton.sprite) {
 					Debug.debug ('Play button clicked');
-					this.videoplayer.resume ();
+					this.setup (ControlPanelSetup.PLAY);
+				}
+			}
+
+			if (this.previewbutton != null) {
+				if (event.target === this.previewbutton.sprite) {
+					Debug.debug ('Preview button clicked');
+					this.setup (ControlPanelSetup.PLAY);
+				}
+			}
+
+			if (this.recordbutton != null) {
+				if (event.target === this.recordbutton.sprite) {
+					Debug.debug ('Record button clicked');
+					this.setup (ControlPanelSetup.RECORD);
+				}
+			}
+
+			if (this.stopplaybutton != null) {
+				if (event.target === this.stopplaybutton.sprite) {
+					Debug.debug ('Stop play button clicked');
+					this.setup (ControlPanelSetup.PREVIEW);
+				}
+			}
+
+			if (this.stoprecordbutton != null) {
+				if (event.target === this.stoprecordbutton.sprite) {
+					Debug.debug ('Stop record button clicked');
+					this.setup (ControlPanelSetup.PREVIEW);
 				}
 			}
 		}
@@ -242,62 +296,125 @@ package se.klandestino.flash.controlpanel {
 			this.setup (this.currentSetup);
 		}
 
-		private function videoEnterFrameHandler (event:Event):void {
+		private function playerEnterFrameHandler (event:Event):void {
 			/*var point:Point = CoordinationTools.localToLocal (this.videoplayer, this);
 			this.x = point.x;
 			this.y = point.y;*/
 		}
 
-		private function videoLoadedHandler (event:VideoplayerEvent):void {
-			Debug.debug ('Handling loaded event from video');
-			this.visible = true;
+		private function playerLoadedHandler (event:VideoplayerEvent):void {
+			Debug.debug ('Handling loaded event from video player');
 		}
 
-		private function videoMouseMoveHandler (event:MouseEvent):void {
-			if (this.currentSetup == ControlPanel.SETUP_PLAY) {
-				this.setup (ControlPanel.SETUP_MOUSE);
+		private function playerMouseMoveHandler (event:MouseEvent):void {
+			if (this.currentSetup == ControlPanelSetup.PLAY) {
+				this.setup (ControlPanelSetup.PLAY_MOUSE);
 			}
 		}
 
-		private function videoPauseHandler (event:VideoplayerEvent):void {
-			Debug.debug ('Handling pause event from video');
-			this.setup (ControlPanel.SETUP_PAUSE);
+		private function playerPauseHandler (event:VideoplayerEvent):void {
+			Debug.debug ('Handling pause event from video player');
+			this.setup (ControlPanelSetup.PLAY_PAUSE);
 		}
 
-		private function videoPlayHandler (event:VideoplayerEvent):void {
-			Debug.debug ('Handling play event from video');
-			this.setup (ControlPanel.SETUP_PLAY);
+		private function playerPlayHandler (event:VideoplayerEvent):void {
+			Debug.debug ('Handling play event from video player');
+			this.setup (ControlPanelSetup.PLAY);
 		}
 
-		private function videoResizeHandler (event:Event):void {
-			Debug.debug ('Handling resize event from video ' + this.videoplayer.width + 'x' + this.videoplayer.height);
+		private function playerResizeHandler (event:Event):void {
+			Debug.debug ('Handling resize event from video player ' + this.player.width + 'x' + this.player.height);
 			this.setup (this.currentSetup);
 		}
 
-		private function videoResumeHandler (event:VideoplayerEvent):void {
-			Debug.debug ('Handling resume event from video');
-			this.setup (ControlPanel.SETUP_PLAY);
+		private function playerResumeHandler (event:VideoplayerEvent):void {
+			Debug.debug ('Handling resume event from video player');
+			this.setup (ControlPanelSetup.PLAY);
 		}
 
-		private function videoStopHandler (event:VideoplayerEvent):void {
-			Debug.debug ('Handling pause event from video');
-			this.setup (ControlPanel.SETUP_PAUSE);
+		private function playerStopHandler (event:VideoplayerEvent):void {
+			Debug.debug ('Handling pause event from video player');
+			this.setup (ControlPanelSetup.PREVIEW);
+		}
+
+		private function recorderEnterFrameHandler (event:Event):void {
+			//
+		}
+
+		private function recorderRecordHandler (event:VideorecEvent):void {
+			Debug.debug ('Handling record event from video recorder');
+			this.setup (ControlPanelSetup.RECORD);
+		}
+
+		private function recorderResizeHandler (event:Event):void {
+			Debug.debug ('Handling resize event from video recorder ' + this.recorder.width + 'x' + this.recorder.height);
+			this.setup (this.currentSetup);
+		}
+
+		private function recorderStopHandler (event:VideorecEvent):void {
+			Debug.debug ('Handling stop event from video recorder');
+			this.setup (ControlPanelSetup.PREVIEW);
 		}
 
 		//--------------------------------------
 		//  PRIVATE & PROTECTED INSTANCE METHODS
 		//--------------------------------------
 
-		private function createButton (name:String, url:String, params:Object, default:Object):Object {
+		private function removePlayerEventListeners ():void {
+			if (this._player != null) {
+				this._player.removeEventListener (Event.ENTER_FRAME, this.playerEnterFrameHandler);
+				this._player.removeEventListener (Event.RESIZE, this.playerResizeHandler);
+				this._player.removeEventListener (MouseEvent.MOUSE_MOVE, this.playerMouseMoveHandler);
+				this._player.removeEventListener (VideoplayerEvent.LOADED, this.playerLoadedHandler);
+				this._player.removeEventListener (VideoplayerEvent.PAUSE, this.playerPauseHandler);
+				this._player.removeEventListener (VideoplayerEvent.PLAY, this.playerPlayHandler);
+				this._player.removeEventListener (VideoplayerEvent.RESUME, this.playerResumeHandler);
+				this._player.removeEventListener (VideoplayerEvent.STOP, this.playerStopHandler);
+			}
+		}
+
+		private function addPlayerEventListeners ():void {
+			if (this._player != null) {
+				this._player.addEventListener (Event.ENTER_FRAME, this.playerEnterFrameHandler, false, 0, true);
+				this._player.addEventListener (Event.RESIZE, this.playerResizeHandler, false, 0, true);
+				this._player.addEventListener (MouseEvent.MOUSE_MOVE, this.playerMouseMoveHandler, false, 0, true);
+				this._player.addEventListener (VideoplayerEvent.LOADED, this.playerLoadedHandler, false, 0, true);
+				this._player.addEventListener (VideoplayerEvent.PAUSE, this.playerPauseHandler, false, 0, true);
+				this._player.addEventListener (VideoplayerEvent.PLAY, this.playerPlayHandler, false, 0, true);
+				this._player.addEventListener (VideoplayerEvent.RESUME, this.playerResumeHandler, false, 0, true);
+				this._player.addEventListener (VideoplayerEvent.STOP, this.playerStopHandler, false, 0, true);
+			}
+		}
+
+		private function removeRecorderEventListeners ():void {
+			if (this._recorder != null) {
+				this._recorder.removeEventListener (Event.ENTER_FRAME, this.recorderEnterFrameHandler);
+				this._recorder.removeEventListener (Event.RESIZE, this.recorderResizeHandler);
+				this._recorder.removeEventListener (VideorecEvent.RECORD, this.recorderRecordHandler);
+				this._recorder.removeEventListener (VideorecEvent.STOP, this.recorderStopHandler);
+			}
+		}
+
+		private function addRecorderEventListeners ():void {
+			if (this._recorder != null) {
+				this._recorder.addEventListener (Event.ENTER_FRAME, this.recorderEnterFrameHandler, false, 0, true);
+				this._recorder.addEventListener (Event.RESIZE, this.recorderResizeHandler, false, 0, true);
+				this._recorder.addEventListener (VideorecEvent.RECORD, this.recorderRecordHandler, false, 0, true);
+				this._recorder.addEventListener (VideorecEvent.STOP, this.recorderStopHandler, false, 0, true);
+			}
+		}
+
+		private function createButton (name:String, url:String, params:Object, defaultValues:Object):Object {
 			var button:Object = new Object ();
 			button.url = url;
-			button.show = params ? (params.show ? params.show : default.show) : default.show;
-			button.hide = params ? (params.hide ? params.hide : default.hide) : default.hide;
+			button.show = params ? (params.show ? params.show : defaultValues.show) : defaultValues.show;
+			button.hide = params ? (params.hide ? params.hide : defaultValues.hide) : defaultValues.hide;
 			button.x = params ? (params.x ? params.x : '') : '';
 			button.y = params ? (params.y ? params.y : '') : '';
 			button.sprite = new Sprite ();
 			this.addChild (button.sprite);
 			this.loader.add (url, name, button.sprite);
+			return button;
 		}
 
 		private function hideButton (button:Object):void {
@@ -317,42 +434,34 @@ package se.klandestino.flash.controlpanel {
 
 		private function setupButton (button:Object):void {
 			if (button != null) {
-				switch (this.currentSetup) {
-					case ControlPanel.SETUP_MOUSE:
-						if (button.hide == ControlPanel.SHOW_MOUSE) {
-							this.hideButton (button);
-						} else if (button.show == ControlPanel.SHOW_MOUSE || button.show == ControlPanel.SHOW_ALWAYS) {
-							this.showButton (button);
-						} else {
-							this.hideButton (button);
-						}
-						break;
-					case ControlPanel.SETUP_PAUSE:
-						if (button.hide == ControlPanel.SHOW_PAUSE) {
-							this.hideButton (button);
-						} else if (button.show == ControlPanel.SHOW_PAUSE || button.show == ControlPanel.SHOW_ALWAYS) {
-							this.showButton (button);
-						} else {
-							this.hideButton (button);
-						}
-						break;
-					case ControlPanel.SETUP_PLAY:
-						if (button.hide == ControlPanel.SHOW_PLAY) {
-							this.hideButton (button);
-						} else if (button.show == ControlPanel.SHOW_PLAY || button.show == ControlPanel.SHOW_ALWAYS) {
-							this.showButton (button);
-						} else {
-							this.hideButton (button);
-						}
-						break;
+				if (StringUtil.containsWord (button.hide, this.currentSetup)) {
+					this.hideButton (button);
+				} else if (StringUtil.containsWord (button.show, this.currentSetup) || StringUtil.containsWord (button.show, ControlPanel.SHOW_ALWAYS)) {
+					this.showButton (button);
 				}
 			}
 		}
 
 		private function setupButtonPositions (button:Object):void {
-			if (button != null && this.videoplayer) {
-				var x:Number = (this.videoplayer.width - button.sprite.width) / 2;
-				var y:Number = (this.videoplayer.height - button.sprite.height) / 2;
+			var device:* = null;
+
+			if (
+				this.currentSetup == ControlPanelSetup.START
+				|| this.currentSetup == ControlPanelSetup.RECORD
+				|| this.currentSetup == ControlPanelSetup.PREVIEW
+			) {
+				device = this.recorder;
+			} else if (
+				this.currentSetup == ControlPanelSetup.PLAY
+				|| this.currentSetup == ControlPanelSetup.PLAY_MOUSE
+				|| this.currentSetup == ControlPanelSetup.PLAY_PAUSE
+			) {
+				device = this.player;
+			}
+
+			if (button != null && device != null) {
+				var x:Number = (device.width - button.sprite.width) / 2;
+				var y:Number = (device.height - button.sprite.height) / 2;
 
 				if (!StringUtil.isEmpty (button.x)) {
 					if (!isNaN (parseFloat (button.x))) {
@@ -363,7 +472,7 @@ package se.klandestino.flash.controlpanel {
 								x = 0;
 								break;
 							case ControlPanel.POSITION_RIGHT:
-								x = this.videoplayer.width - button.sprite.width;
+								x = this.player.width - button.sprite.width;
 								break;
 							default:
 								Debug.warn ('There x is no position by value ' + button.x);
@@ -377,7 +486,7 @@ package se.klandestino.flash.controlpanel {
 					} else {
 						switch (button.y) {
 							case ControlPanel.POSITION_BOTTOM:
-								y = this.videoplayer.height - button.sprite.height;;
+								y = device.height - button.sprite.height;;
 								break;
 							case ControlPanel.POSITION_TOP:
 								y = 0;
@@ -396,8 +505,8 @@ package se.klandestino.flash.controlpanel {
 		}
 
 		private function endMouseSetup ():void {
-			if (this.currentSetup == ControlPanel.SETUP_MOUSE) {
-				this.setup (ControlPanel.SETUP_PLAY);
+			if (this.currentSetup == ControlPanelSetup.PLAY_MOUSE) {
+				this.setup (ControlPanelSetup.PLAY);
 			}
 		}
 

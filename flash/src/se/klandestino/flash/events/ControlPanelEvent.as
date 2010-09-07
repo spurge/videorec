@@ -1,4 +1,4 @@
-package se.klandestino.flash.videorec.events {
+package se.klandestino.flash.events {
 
 	import flash.events.Event;
 

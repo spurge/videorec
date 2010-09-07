@@ -1,4 +1,4 @@
-package se.klandestino.flash.videoplayer.events {
+package se.klandestino.flash.events {
 	import flash.events.Event;
 	
 	/**
@@ -19,6 +19,7 @@ package se.klandestino.flash.videoplayer.events {
 		public static const BUFFER_EMPTY:String = 'buffer empty';
 		public static const BUFFER_FULL:String = 'buffer full';
 		public static const CONNECTED:String = 'connected';
+		public static const DISCONNECTED:String = 'disconnected';
 		public static const LOADED:String = 'loaded';
 		public static const PAUSE:String = 'pause';
 		public static const PLAY:String = 'play';

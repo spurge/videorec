@@ -1,4 +1,4 @@
-package se.klandestino.flash.videorec.events {
+package se.klandestino.flash.events {
 
 	import flash.events.Event;
 
@@ -17,6 +17,8 @@ package se.klandestino.flash.videorec.events {
 		// CLASS CONSTANTS
 		//--------------------------------------
 
+		public static const CONNECTED:String = 'connected';
+		public static const DISCONNECTED:String = 'disconnected';
 		public static const ERROR_SECURITY:String = 'security error';
 		public static const ERROR_STREAM_IO:String = 'stream i/o error'
 		public static const NO_CAMERA:String = 'no camera';

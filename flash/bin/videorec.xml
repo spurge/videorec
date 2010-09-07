@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<videoplayer>
+	<!--
+		<autosize | bandwidth | callback | r5mcproject | r5mcsecret
+			value="true/false | String | Number"
+		/>
+	-->
+	<autosize value="true" />
+	<bandwidth value="0" />
+	<callback value="videorec_callback" />
+	<r5mcproject value="videorec" />
+	<r5mcsecret value="s89dh33qlasdf92sd83_d3@kas^^" />
+
+	<messages>
+		<!--
+			<connection | finish>
+				<child-element> | text-node
+			</connection | finish>
+		-->
+		<connection>
+			<!--
+				<error | lost>
+					text-node
+				</error | lost>
+			-->
+			<error>Connection error. Retry?</error>
+			<lost>Connection lost. Retry?</lost>
+		</connection>
+		<finish>You're now finished recording!</finish>
+	</messages>
+
+	<panel>
+		<!--
+			<player | recorder>
+				<play | pause | stop | preview | record | finish
+					src="URL"
+					show="always | play | play-pause | play-mouse | start | record | preview"
+					hide="play | pause | mouse | start | record | preview"
+					x="Number | center | left | right" – Default is center
+					y="Number | center | top | bottom" – Default is center
+				/>
+			</player | recorder>
+		-->
+		<player>
+			<play src="images/play.png" show="play-pause" hide="play preview start record" />
+			<pause src="images/pause.png" show="play-mouse" hide="start play-pause record" />
+			<stop src="images/stop.png" show="play" hide="start preview record" />
+		</player>
+		<recorder>
+			<record src="images/record.png" show="start preview" hide="play" />
+			<preview src="images/preview.png" show="preview" hide="start play" />
+			<stop src="images/stop.png" show="record" hide="start preview play" />
+			<finish src="images/finish.png" show="preview" hide="start play" />
+		</recorder>
+	</panel>
+</videoplayer>

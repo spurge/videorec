@@ -65,6 +65,7 @@ package se.klandestino.flash.videorec {
 		//  PRIVATE VARIABLES
 		//--------------------------------------
 
+		private var _bandwidth:Number = 100;
 		private var camera:Camera;
 		private var _connection:NetConnection;
 		private var microphone:Microphone;
@@ -81,12 +82,72 @@ package se.klandestino.flash.videorec {
 		//  GETTER/SETTERS
 		//--------------------------------------
 
+		public function get bandwidth ():Number {
+			return this._bandwidth;
+		}
+
+		public function set bandwidth (bandwidth:Number):void {
+			this._bandwidth = bandwidth;
+		}
+
+		public function get connected ():Boolean {
+			if (this._connection != null) {
+				return this._connection.connected;
+			} else {
+				return false;
+			}
+		}
+
 		public function get connection ():NetConnection {
 			return this._connection;
 		}
 
 		public function set connection (connection:NetConnection):void {
 			this._connection = connection;
+		}
+
+		public function get flip ():Boolean {
+			return this.videoFlip;
+		}
+
+		public function set flip (flip:Boolean):void {
+			this.videoFlip = flip;
+		}
+
+		override public function get height ():Number {
+			return this.video != null ? this.video.height : super.height;
+		}
+
+		override public function set height (val:Number):void {
+			Debug.debug ('Setting new height for video by ' + width);
+
+			if (this.video != null) {
+				this.video.height = val;
+			}
+
+			this.dispatchEvent (new Event (Event.RESIZE));
+		}
+
+		public function get timeLimit ():int {
+			return this.recordTime;
+		}
+
+		public function set timeLimit (limit:int):void {
+			this.recordTime = limit;
+		}
+
+		override public function get width ():Number {
+			return this.video != null ? this.video.width : super.width;
+		}
+
+		override public function set width (val:Number):void {
+			Debug.debug ('Setting new width for video by ' + width);
+
+			if (this.video != null) {
+				this.video.width = val;
+			}
+
+			this.dispatchEvent (new Event (Event.RESIZE));
 		}
 
 		//--------------------------------------
@@ -96,8 +157,6 @@ package se.klandestino.flash.videorec {
 		public function record ():void {
 			Debug.debug ('Trying to start recording ' + this.streamId);
 			this.setupNetStream ();
-			this.streamDuration = 0;
-			this.setupLoaderMovie ();
 
 			var recordSuccess:Boolean = false;
 			try {
@@ -139,10 +198,6 @@ package se.klandestino.flash.videorec {
 			switch (event.code) {
 				case 'Camera.Unmuted':
 					this.setupCamera ();
-
-					if (this.connected && !this.microphone.muted) {
-						this.dispatchEvent (new VideorecEvent (VideorecEvent.CONNECTED));
-					}
 					break;
 				case 'Camera.Muted':
 					this.dispatchEvent (new VideorecEvent (VideorecEvent.NO_CAMERA));
@@ -156,10 +211,6 @@ package se.klandestino.flash.videorec {
 			switch (event.code) {
 				case 'Microphone.Unmuted':
 					this.setupCamera ();
-
-					if (this.connected && !this.camera.muted) {
-						this.dispatchEvent (new VideorecEvent (VideorecEvent.CONNECTED));
-					}
 					break;
 				case 'Microphone.Muted':
 					this.dispatchEvent (new VideorecEvent (VideorecEvent.NO_MICROPHONE));
@@ -303,12 +354,6 @@ package se.klandestino.flash.videorec {
 			this.stream = new NetStream (this.connection);
 			this.stream.addEventListener (NetStatusEvent.NET_STATUS, this.streamNetStatusHandler, false, 0, true);
 			this.stream.addEventListener (IOErrorEvent.IO_ERROR, this.streamIoErrorHandler, false, 0, true);
-
-			if (this.streamClient == null) {
-				this.streamClient = new NetStreamClient ();
-				this.streamClient.addEventListener (NetStreamClientEvent.META, this.streamClientMetaHandler, false, 0, true);
-				this.streamClient.addEventListener (NetStreamClientEvent.PLAY_STATUS, this.streamClientStatusHandler, false, 0, true);
-			}
 		}
 
 		private function removeNetStream ():void {

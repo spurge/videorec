@@ -6,6 +6,8 @@ package {
 	import flash.display.StageScaleMode;
 	import flash.events.ErrorEvent;
 	import flash.events.Event;
+	import flash.events.NetStatusEvent;
+	import flash.events.SecurityErrorEvent;
 	import flash.external.ExternalInterface;
 	import flash.net.NetConnection;
 	import flash.utils.clearTimeout;
@@ -74,6 +76,7 @@ package {
 
 			this.recorder = new Videorec ();
 			this.recorder.addEventListener (Event.RESIZE, this.recorderResizeHandler, false, 0, true);
+			this.recorder.addEventListener (VideorecEvent.DISCONNECTED, this.recorderDisconnectHandler, false, 0, true);
 			this.recorder.addEventListener (VideorecEvent.RECORD, this.recorderRecordHandler, false, 0, true);
 			this.recorder.addEventListener (VideorecEvent.STOP, this.recorderStopHandler, false, 0, true);
 
@@ -81,6 +84,7 @@ package {
 			this.player.addEventListener (Event.RESIZE, this.playerResizeHandler, false, 0, true);
 			this.player.addEventListener (VideoplayerEvent.BUFFER_EMPTY, this.playerBufferEmptyHandler, false, 0, true);
 			this.player.addEventListener (VideoplayerEvent.BUFFER_FULL, this.playerBufferFullHandler, false, 0, true);
+			this.player.addEventListener (VideoplayerEvent.DISCONNECTED, this.playerDisconnectHandler, false, 0, true);
 			this.player.addEventListener (VideoplayerEvent.LOADED, this.playerLoadedHandler, false, 0, true);
 			this.player.addEventListener (VideoplayerEvent.STOP, this.playerStopHandler, false, 0, true);
 
@@ -110,6 +114,7 @@ package {
 		private var connection:NetConnection;
 		private var connectionRetries:int = 0;
 		private var connectionRetryTimeout:int;
+		private var jsCallback:String;
 		private var loader:Sprite;
 		private var messages:Object;
 		private var missionControl:R5MC;
@@ -153,7 +158,7 @@ package {
 
 		private function missionControlErrorHandler (event:ErrorEvent):void {
 			Debug.debug ('Mission Control Error');
-			this.sendErrorMessage (Messages.connectionError);
+			this.sendErrorMessage (messages.connectionError);
 		}
 
 		private function connectionNetStatusHandler (event:NetStatusEvent): void {
@@ -161,22 +166,17 @@ package {
 
 			switch (event.info.code) {
 				case 'NetConnection.Connect.Success':
-					this.connected = true;
 					this.connectionRetries = 0;
-					if (!this.camera.muted && !this.microphone.muted) {
-						this.start ();
-					}
+					this.start ();
 					break;
 				case 'NetConnection.Connect.Failed':
-					this.connected = false;
 					if (!this.retryConnection ()) {
-						this.sendErrorMessage (Messages.connectionError);
+						this.sendErrorMessage (messages.connectionError);
 					}
 					break;
 				case 'NetConnection.Connect.Closed':
-					this.connected = false;
 					if (!this.retryConnection ()) {
-						this.sendErrorMessage (Messages.connectionLost);
+						this.sendErrorMessage (messages.connectionLost);
 					}
 					break;
 			}
@@ -184,7 +184,7 @@ package {
 
 		private function connectionSecurityErrorHandler (event:SecurityErrorEvent): void {
 			Debug.error ('NetConnection security error');
-			this.sendErrorMessage (Messages.connectionError)
+			this.sendErrorMessage (messages.connectionError)
 		}
 
 		private function bwCheckCompleteHandler (event:Event):void {
@@ -221,6 +221,11 @@ package {
 			this.removeLoader ();
 		}
 
+		private function playerDisconnectHandler (event:VideoplayerEvent):void {
+			Debug.debug ('Player got disconnected');
+			this.sendErrorMessage (messages.connectionLost);
+		}
+
 		private function playerLoadedHandler (event:VideoplayerEvent):void {
 			Debug.debug ('Video loaded, removing loader');
 			this.removeLoader ();
@@ -243,9 +248,9 @@ package {
 			this.removeLoader ();
 		}
 
-		private function recorderConnectHandler (event:VideorecEvent):void {
-			Debug.debug ('Video recorder connected');
-			this.removeLoader ();
+		private function recorderDisconnectHandler (event:VideorecEvent):void {
+			Debug.debug ('Recorder got disconnected');
+			this.sendErrorMessage (messages.connectionLost);
 		}
 
 		private function recorderRecordHandler (event:VideorecEvent):void {
@@ -261,7 +266,7 @@ package {
 		private function recorderResizeHandler (event:Event):void {
 			if (this.autosize) {
 				Debug.debug ('New size from video recorder and autosize is enabled');
-				this.sendCallback (Main.CALLBACK_RESIZE, this.recorder.videoWidth, this.recorder.videoHeight);
+				this.sendCallback (Main.CALLBACK_RESIZE, this.recorder.width, this.recorder.height);
 			} else {
 				Debug.debug ('New size from video recorder but autosize is not enabled');
 			}
@@ -276,10 +281,16 @@ package {
 			switch (event.setup) {
 				case ControlPanelSetup.START:
 				case ControlPanelSetup.PREVIEW:
+				case ControlPanelSetup.RECORD:
 					this.setupRecorder ();
 					break;
 				case ControlPanelSetup.PLAY:
 					this.setupPlayer ();
+					break;
+				case ControlPanelSetup.FINISH:
+					this.removeRecorder ();
+					this.removePlayer ();
+					this.sendMessage (messages.finish);
 					break;
 			}
 		}
@@ -290,12 +301,16 @@ package {
 
 		private function start ():void {
 			if (!this.missionControl.loaded) {
+				this.setupLoader ();
 				this.setupMissionControl ();
 			} else if (!this.connection.connected) {
+				this.setupLoader ();
 				this.setupConnection ();
 			} else if (!this.bwDetect.detected && this.bwDetectFail) {
+				this.setupLoader ();
 				this.setupBwDetect ();
 			} else {
+				this.removeLoader ();
 				this.panel.setup (ControlPanelSetup.START);
 			}
 		}
@@ -330,50 +345,56 @@ package {
 			this.r5mcSecret = LoaderInfoParams.getParam (this.stage.loaderInfo, 'r5mcsecret', this.config.getData ('r5mcsecret.value', this.r5mcSecret));
 
 			this.player.autosize = this.autosize;
-			this.recorder.autosize = this.autosize;
 
 			this.messages = {
-				connectionError: this.config.getData ('message.connection.error', ''),
-				connectionLost: this.config.getData ('message.connection.lost', ''),
-				finish: this.config.getData ('message.finish', '')
+				connectionError: this.config.getData ('messages.connection.error', ''),
+				connectionLost: this.config.getData ('messages.connection.lost', ''),
+				finish: this.config.getData ('messages.finish', '')
 			}
 
-			this.panel.setPlayerPlayButton (this.config.getData ('panel.player.play.src', ''), {
+			this.panel.setPlayButton (this.config.getData ('panel.player.play.src', ''), {
 				show: this.config.getData ('panel.player.play.show', ''),
 				hide: this.config.getData ('panel.player.play.hide', ''),
 				x: this.config.getData ('panel.player.play.x', ''),
 				y: this.config.getData ('panel.player.play.y', '')
 			});
 
-			this.panel.setPlayerPauseButton (this.config.getData ('panel.player.pause.src', ''), {
+			this.panel.setPauseButton (this.config.getData ('panel.player.pause.src', ''), {
 				show: this.config.getData ('panel.player.pause.show', ''),
 				hide: this.config.getData ('panel.player.pause.hide', ''),
 				x: this.config.getData ('panel.player.pause.x', ''),
 				y: this.config.getData ('panel.player.pause.y', '')
 			});
 
-			this.panel.setPlayerStopButton (this.config.getData ('panel.player.stop.src', ''), {
+			this.panel.setStopPlayButton (this.config.getData ('panel.player.stop.src', ''), {
 				show: this.config.getData ('panel.player.stop.show', ''),
 				hide: this.config.getData ('panel.player.stop.hide', ''),
 				x: this.config.getData ('panel.player.stop.x', ''),
 				y: this.config.getData ('panel.player.stop.y', '')
 			});
 
-			this.panel.setRecorderPreviewButton (this.config.getData ('panel.recorder.preview.src', ''), {
+			this.panel.setPreviewButton (this.config.getData ('panel.recorder.preview.src', ''), {
 				show: this.config.getData ('panel.recorder.preview.show', ''),
 				hide: this.config.getData ('panel.recorder.preview.hide', ''),
 				x: this.config.getData ('panel.recorder.preview.x', ''),
 				y: this.config.getData ('panel.recorder.preview.y', '')
 			});
 
-			this.panel.setRecorderRecordButton (this.config.getData ('panel.recorder.record.src', ''), {
+			this.panel.setRecordButton (this.config.getData ('panel.recorder.record.src', ''), {
 				show: this.config.getData ('panel.recorder.record.show', ''),
 				hide: this.config.getData ('panel.recorder.record.hide', ''),
 				x: this.config.getData ('panel.recorder.record.x', ''),
 				y: this.config.getData ('panel.recorder.record.y', '')
 			});
 
-			this.panel.setRecorderFinishButton (this.config.getData ('panel.recorder.finish.src', ''), {
+			this.panel.setStopRecordButton (this.config.getData ('panel.recorder.stop.src', ''), {
+				show: this.config.getData ('panel.recorder.stop.show', ''),
+				hide: this.config.getData ('panel.recorder.stop.hide', ''),
+				x: this.config.getData ('panel.recorder.stop.x', ''),
+				y: this.config.getData ('panel.recorder.stop.y', '')
+			});
+
+			this.panel.setFinishButton (this.config.getData ('panel.recorder.finish.src', ''), {
 				show: this.config.getData ('panel.recorder.finish.show', ''),
 				hide: this.config.getData ('panel.recorder.finish.hide', ''),
 				x: this.config.getData ('panel.recorder.finish.x', ''),
@@ -383,7 +404,7 @@ package {
 			this.panel.init ();
 
 			this.recorder.flip = LoaderInfoParams.getParam (this.stage.loaderInfo, 'flip', this.config.getData ('videoflip.value', null));
-			this.recorder.timelimit = LoaderInfoParams.getParam (this.stage.loaderInfo, 'recordtime', this.config.getData ('recordtime.value', this.recordTime));
+			this.recorder.timeLimit = LoaderInfoParams.getParam (this.stage.loaderInfo, 'recordtime', this.config.getData ('recordtime.value', this.recorder.timeLimit));
 		}
 
 		private function setupConnectionControls ():void {
@@ -427,11 +448,11 @@ package {
 		private function retryConnection ():Boolean {
 			clearTimeout (this.connectionRetryTimeout);
 
-			if (this.connectionRetries < Videorec.CONNECTION_RETRIES) {
+			if (this.connectionRetries < Main.CONNECTION_RETRIES) {
 				this.connectionRetries++;
-				Debug.debug ('Retrying to setup up connection, ' + this.connectionRetries + ' of ' + Videorec.CONNECTION_RETRIES);
-				this.setupLoaderMovie ();
-				this.connectionRetryTimeout = setTimeout (this.init, Videorec.CONNECTION_RETRY_TIMEOUT);
+				Debug.debug ('Retrying to setup up connection, ' + this.connectionRetries + ' of ' + Main.CONNECTION_RETRIES);
+				this.setupLoader ();
+				this.connectionRetryTimeout = setTimeout (this.setupConnection, Main.CONNECTION_RETRY_TIMEOUT);
 				return true;
 			}
 
@@ -446,6 +467,13 @@ package {
 		private function setupRecorder ():void {
 			this.removeRecorder ();
 			this.recorder.connection = this.connection;
+
+			if (this.bandwidthOverride > 0) {
+				this.recorder.bandwidth = this.bandwidthOverride;
+			} else if (this.bwDetect.detected) {
+				this.recorder.bandwidth = this.bwDetect.kbitUp;
+			}
+
 			if (this.recorder.parent == null) {
 				this.recplayContainer.addChild (this.recorder);
 			}
@@ -460,6 +488,7 @@ package {
 		private function setupPlayer ():void {
 			this.removeRecorder ();
 			this.player.connection = this.connection;
+			this.player.load (this.missionControl.rtmp + '/' + this.missionControl.stream);
 			if (this.player.parent == null) {
 				this.recplayContainer.addChild (this.player);
 			}
@@ -502,6 +531,10 @@ package {
 			if (this.loader != null) {
 				this.loader.visible = false;
 			}
+		}
+
+		private function sendMessage (message:String):void {
+			//
 		}
 
 		private function sendErrorMessage (message:String):void {
