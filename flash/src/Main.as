@@ -12,6 +12,8 @@ package {
 	import flash.net.NetConnection;
 	import flash.utils.clearTimeout;
 	import flash.utils.setTimeout;
+	import mx.core.ByteArrayAsset;
+	import mx.core.MovieClipLoaderAsset;
 	import net.hires.debug.Stats;
 	import org.red5.flash.bwcheck.events.BandwidthDetectEvent;
 	import se.klandestino.flash.config.ConfigLoader;
@@ -46,11 +48,11 @@ package {
 		//--------------------------------------
 
 		[Embed(source="../assets/loader.swf")]
+		[Bindable]
 		private var loaderMovieClass:Class;
 
 		public static const CALLBACK_RESIZE:String = 'resize';
 		public static const CONFIG_XML_FILE:String = 'videorec.xml';
-		public static const CONFIG_ZIP_FILE:String = 'videorec.zip';
 		public static const CONNECTION_RETRIES:int = 3;
 		public static const CONNECTION_RETRY_TIMEOUT:int = 200;
 
@@ -66,6 +68,8 @@ package {
 
 			Debug.addLogger (new TraceLogger ());
 			//Debug.addLogger (new NullLogger ());
+
+			this.setupLoader ();
 
 			this.loadConfig ();
 

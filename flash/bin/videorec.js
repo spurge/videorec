@@ -29,7 +29,12 @@ var videorec = {
 		var height = jElm.height ();
 
 		var params = {
-			config: jElm.attr ('data_config')
+			config: jElm.attr ('data_config'),
+			autosize: jElm.attr ('data_autosize'),
+			bandwidth: jElm.attr ('data_bandwidth'),
+			callback: jElm.attr ('data_callback'),
+			r5mcproject: jElm.attr ('data_r5mcproject'),
+			r5mcsecret: jElm.attr ('data_r5mcsecret')
 		};
 
 		jElm.replaceWith ('<div id="' + id + '"></div>');

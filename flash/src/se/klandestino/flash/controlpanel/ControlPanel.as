@@ -59,6 +59,7 @@ package se.klandestino.flash.controlpanel {
 		//  PRIVATE VARIABLES
 		//--------------------------------------
 
+		private var buttonOffsets:Object;
 		private var _currentSetup:String = ControlPanelSetup.START;
 		private var finishbutton:Object;
 		private var loader:MultiLoader;
@@ -163,6 +164,7 @@ package se.klandestino.flash.controlpanel {
 					return;
 			}
 
+			this.buttonOffsets = null;
 			this.setupButton (this.finishbutton);
 			this.setupButton (this.pausebutton);
 			this.setupButton (this.playbutton);
@@ -409,8 +411,8 @@ package se.klandestino.flash.controlpanel {
 			button.url = url;
 			button.show = params ? (params.show ? params.show : defaultValues.show) : defaultValues.show;
 			button.hide = params ? (params.hide ? params.hide : defaultValues.hide) : defaultValues.hide;
-			button.x = params ? (params.x ? params.x : '') : '';
-			button.y = params ? (params.y ? params.y : '') : '';
+			button.x = params ? (params.x ? params.x : defaultValues.x) : defaultValues.x;
+			button.y = params ? (params.y ? params.y : defaultValues.y) : defaultValues.y;
 			button.sprite = new Sprite ();
 			this.addChild (button.sprite);
 			this.loader.add (url, name, button.sprite);
@@ -459,7 +461,15 @@ package se.klandestino.flash.controlpanel {
 				device = this.player;
 			}
 
+			if (this.buttonOffsets == null) {
+				this.buttonOffsets = {
+					left: 0,
+					right: 0
+				}
+			}
+
 			if (button != null && device != null) {
+				var centered:Boolean = true;
 				var x:Number = (device.width - button.sprite.width) / 2;
 				var y:Number = (device.height - button.sprite.height) / 2;
 
@@ -469,10 +479,14 @@ package se.klandestino.flash.controlpanel {
 					} else {
 						switch (button.x) {
 							case ControlPanel.POSITION_LEFT:
-								x = 0;
+								centered = false;
+								x = this.buttonOffsets.left;
+								this.buttonOffsets += button.sprite.width;
 								break;
 							case ControlPanel.POSITION_RIGHT:
-								x = this.player.width - button.sprite.width;
+								centered = false;
+								x = device.width - button.sprite.width - this.buttonOffsets.right;
+								this.buttonOffsets += button.sprite.width;
 								break;
 							default:
 								Debug.warn ('There x is no position by value ' + button.x);
@@ -497,10 +511,39 @@ package se.klandestino.flash.controlpanel {
 					}
 				}
 
+				if (centered) {
+					button.x = ControlPanel.POSITION_CENTER;
+					this.setupCenteredButtonPositions (device);
+				}
+
 				Debug.debug ('Setting up button positions to ' + x + 'x' + y);
 
 				button.sprite.x = x;
 				button.sprite.y = y;
+			}
+		}
+
+		private function setupCenteredButtonPositions (device:*):void {
+			var width:Number = 0;
+			var buttons:Array = [
+				this.finishbutton,
+				this.pausebutton,
+				this.playbutton,
+				this.recordbutton,
+				this.stopplaybutton,
+				this.stoprecordbutton
+			];
+
+			for (var wi:int = 0, wl:int = buttons.length; wi < wl; wi++) {
+				width += buttons [wi].sprite.width;
+			}
+
+			for (var xi:int = 0, xl:int = buttons.length; xi < xl; xi++) {
+				var x:Number = 0;
+				if (xi > 0) {
+					x = buttons [xi - 1].sprite.x;
+				}
+				buttons [xi].sprite.x = ((device.width - width) / 2) + x;
 			}
 		}
 

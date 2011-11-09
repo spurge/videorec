@@ -1,0 +1,8 @@
+General
+	* Add/change graphics according to the new interface
+
+Main
+	* Send message
+	* Send error message
+	* Message configuration through config xml
+	* Configuration as zip

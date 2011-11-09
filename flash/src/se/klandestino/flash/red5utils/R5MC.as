@@ -30,8 +30,8 @@ package se.klandestino.flash.red5utils {
 		// CLASS CONSTANTS
 		//--------------------------------------
 
-		//public static const R5MC_URL:String = 'http://localhost:8080/record';
-		public static const R5MC_URL:String = 'http://red5missioncontrol.metahost.se/record';
+		public static const R5MC_URL:String = 'http://localhost:8080/record';
+		//public static const R5MC_URL:String = 'http://red5missioncontrol.metahost.se/record';
 		public static const NETWORK_RETRIES:int = 3;
 		public static const NETWORK_RETRY_TIMEOUT:int = 200;
 

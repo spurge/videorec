@@ -1,1 +1,17 @@
-Videorec is a simple videorecorder written for Flash 10, Red5 and Google App Engine
+Videorec is a mission controlled video recorder written for Flash 10, Red5 and Google App Engine (GAE).
+
+Flash client
+	* Configurable through configuration xml file
+	* Sends request to GAE-application for approved and valid rtmp host and stream
+	* Opens a rtmp connection and stream to record and preview recorder material
+
+GAE-application
+	* Validates flash client requests
+	* Sends rtmp host, stream id and where to find recorded material to flash client
+	* Validates stream id from Red5-application
+
+Red5-application
+	* Validates stream id from Red5-application
+	* Receives stream data for recording
+	* Sends stream data for preview
+	* Stores recorded data on server in a public directory
